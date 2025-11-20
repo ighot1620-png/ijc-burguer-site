@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IJC BURGUER - Sistema de Pedidos</title>
+    <style>
+        :root { --primary: #8B0000; --accent: #FFD700; --dark: #1a1a1a; --light: #f4f4f4; --text-light: #fff; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: var(--dark); background: var(--light); }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .header { background: var(--dark); color: var(--text-light); padding: 1rem 0; text-align: center; position: sticky; top: 0; z-index: 1000; }
+        .logo { font-size: 1.8rem; font-weight: bold; color: var(--accent); }
+        .hero { background: linear-gradient(rgba(139,0,0,0.8), rgba(139,0,0,0.9)); padding: 3rem 0; text-align: center; color: white; }
+        
+        #carrinho-flutuante {
+            position: fixed; bottom: 80px; right: 20px; background: var(--accent); color: var(--dark); padding: 15px 20px;
+            border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 1000;
+            display: flex; align-items: center; gap: 8px; transition: transform 0.3s ease;
+        }
+        #carrinho-flutuante:hover { transform: scale(1.05); }
+
+        #finalizar-pedido {
+            position: fixed; bottom: 20px; right: 20px; background: var(--primary); color: var(--text-light); padding: 15px 20px;
+            border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 1000;
+            display: flex; align-items: center; gap: 8px; transition: transform 0.3s ease; border: none; font-size: 1rem;
+        }
+        #finalizar-pedido:hover { transform: scale(1.05); background: #a60000; }
+
+        .categoria { margin: 3rem 0; }
+        .categoria h2 { color: var(--primary); text-align: center; margin-bottom: 2rem; font-size: 2rem; border-bottom: 3px solid var(--accent); padding-bottom: 0.5rem; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
+        .menu-item { background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); transition: all 0.3s ease; border: 2px solid transparent; text-align: center; }
+        .menu-item:hover { border-color: var(--accent); transform: translateY(-5px); }
+        .emoji-container { font-size: 4rem; margin-bottom: 1rem; height: 80px; display: flex; align-items: center; justify-content: center; }
+        .preco { color: var(--primary); font-weight: bold; font-size: 1.3rem; margin: 1rem 0; }
+        .add-button { background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 25px; cursor: pointer; transition: all 0.3s ease; font-weight: bold; width: 100%; }
+        .add-button:hover { background: #a60000; transform: scale(1.05); }
+        .add-button.added { background: var(--accent); color: var(--dark); }
+        .footer { background: var(--dark); color: var(--text-light); text-align: center; padding: 2rem 0; margin-top: 3rem; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; }
+        .modal-content { background: white; margin: 2% auto; padding: 2rem; border-radius: 15px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.8rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; }
+        .pedido-resumo { background: var(--light); padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 1rem 2rem; border-radius: 25px; font-size: 1.1rem; font-weight: bold; cursor: pointer; width: 100%; margin-top: 1rem; }
+        .btn-fechar { background: #666; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 20px; cursor: pointer; margin-top: 1rem; width: 100%; }
+        .tipo-entrega { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+        .opcao-entrega { padding: 1rem; border: 2px solid #ddd; border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.3s ease; }
+        .opcao-entrega.selecionada { border-color: var(--primary); background: var(--light); }
+        .item-carrinho { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+        .controles-item { display: flex; align-items: center; gap: 0.5rem; }
+        .btn-quantidade { background: var(--primary); color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; }
+        .btn-remover { background: #dc3545; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 15px; cursor: pointer; font-size: 0.8rem; }
+
+        @media (max-width: 768px) {
+            .menu-grid { grid-template-columns: 1fr; }
+            .modal-content { margin: 5% auto; width: 95%; padding: 1.5rem; }
+            .tipo-entrega { grid-template-columns: 1fr; }
+            #carrinho-flutuante, #finalizar-pedido { bottom: 20px; right: 20px; font-size: 0.9rem; padding: 12px 16px; }
+            #carrinho-flutuante { bottom: 80px; }
+            .emoji-container { font-size: 3rem; height: 60px; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">IJC BURGUER 🍔</div>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Faça Seu Pedido Online</h1>
+            <p style="font-size: 1.2rem; margin-top: 1rem;">Entrega em 60 minutos ou retirada no balcão</p>
+        </div>
+    </section>
+
+    <main class="container">
+        <div id="conteudo-site">
+            <!-- Cardápio será carregado aqui -->
+        </div>
+
+        <section class="categoria" style="text-align: center; background: var(--light); padding: 2rem; border-radius: 10px;">
+            <h2>📞 Informações</h2>
+            <p style="margin: 1rem 0;">
+                <strong>Taxa de entrega:</strong> R$ 5,00<br>
+                <strong>Tempo de entrega:</strong> 60 minutos<br>
+                <strong>Horário:</strong> Segunda a Sábado: 18h00 às 23h30
+            </p>
+        </section>
+    </main>
+
+    <!-- Modal do Carrinho -->
+    <div id="modal-carrinho" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--primary); margin-bottom: 1rem;">🛒 Seu Pedido</h2>
+            <div class="pedido-resumo" id="resumo-pedido"></div>
+            <div id="secao-tipo-entrega" style="display: none;">
+                <h3>📍 Tipo de Entrega</h3>
+                <div class="tipo-entrega">
+                    <div class="opcao-entrega" onclick="selecionarTipoEntrega('entrega')">
+                        <h4>🚚 Entrega</h4>
+                        <p>+ R$ 5,00</p>
+                        <small>Entregamos em até 60min</small>
+                    </div>
+                    <div class="opcao-entrega" onclick="selecionarTipoEntrega('balcao')">
+                        <h4>🏪 Balcão</h4>
+                        <p>Sem taxa</p>
+                        <small>Retire seu pedido</small>
+                    </div>
+                </div>
+            </div>
+            <form id="form-pedido" style="display: none;">
+                <div id="dados-entrega">
+                    <h3>📋 Dados para Entrega</h3>
+                    <div class="form-group"><label for="nome">👤 Nome *</label><input type="text" id="nome" required placeholder="Seu nome"></div>
+                    <div class="form-group"><label for="telefone">📞 Telefone *</label><input type="tel" id="telefone" required placeholder="(37) 99999-9999"></div>
+                    <div class="form-group"><label for="endereco">📍 Endereço *</label><textarea id="endereco" required placeholder="Rua, número, bairro..." rows="3"></textarea></div>
+                    <div class="form-group"><label for="referencia">🏠 Referência</label><input type="text" id="referencia" placeholder="Próximo a..."></div>
+                </div>
+                <div id="dados-balcao" style="display: none;">
+                    <h3>🏪 Retirada no Balcão</h3>
+                    <div class="form-group"><label for="nome-balcao">👤 Nome *</label><input type="text" id="nome-balcao" required placeholder="Seu nome"></div>
+                    <div class="form-group"><label for="telefone-balcao">📞 Telefone *</label><input type="tel" id="telefone-balcao" required placeholder="(37) 99999-9999"></div>
+                </div>
+                <div class="form-group">
+                    <label for="pagamento">💳 Pagamento *</label>
+                    <select id="pagamento" required>
+                        <option value="">Selecione...</option>
+                        <option value="Dinheiro">💵 Dinheiro</option>
+                        <option value="Cartão Débito">💳 Cartão Débito</option>
+                        <option value="Cartão Crédito">💳 Cartão Crédito</option>
+                        <option value="PIX">📱 PIX</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="observacoes">📝 Observações</label><textarea id="observacoes" placeholder="Alguma observação?" rows="2"></textarea></div>
+                <button type="button" class="btn-whatsapp" onclick="enviarPedidoWhatsApp()">📤 ENVIAR PEDIDO</button>
+            </form>
+            <div id="botoes-carrinho">
+                <button class="btn-whatsapp" onclick="avancarParaEntrega()">✅ FINALIZAR PEDIDO</button>
+                <button class="btn-fechar" onclick="fecharModal()">🛒 CONTINUAR COMPRANDO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="carrinho-flutuante" onclick="abrirModalCarrinho()">🛒 <span id="contador-carrinho">0</span> itens</div>
+    
+    <button id="finalizar-pedido" onclick="abrirModalCarrinho()">✅ Finalizar Pedido</button>
+
+    <footer class="footer">
+        <div class="container">
+            <p>IJC BURGUER © 2024 - WhatsApp: (37) 99197-7231</p>
+        </div>
+    </footer>
+
+    <script>
+        // =============================================
+        // 🔧 🔧 🔧 AREA DE EDIÇÃO FÁCIL 🔧 🔧 🔧
+        // =============================================
+        // EDITE APENAS ESTA PARTE ABAIXO:
+
+        const CONFIG = {
+            nomeRestaurante: "IJC BURGUER 🍔",
+            whatsapp: "37991977231", // SEU WHATSAPP (apenas números)
+            taxaEntrega: 5.00
+        };
+
+        // 🍔 🍕 🥤 EDITE SEU CARDÁPIO AQUI! 🍔 🍕 🥤
+        // FORMATO: ["CATEGORIA", "NOME DO PRODUTO", "DESCRIÇÃO", PREÇO, "EMOJI"]
+        const CARDAPIO_DADOS = [
+            // BEBIDAS - REFRIGERANTES
+            ["Bebidas", "Coca-Cola Lata 350ml", "Sabor Original - 350ml", 6.50, "🥤"],
+            ["Bebidas", "Coca-Cola 1 Litro", "Sabor Original - 1 Litro", 10.00, "🥤"],
+            ["Bebidas", "Coca-Cola 2 Litros", "Sabor Original - 2 Litros", 16.00, "🥤"],
+            ["Bebidas", "Guaraná Antarctica Lata 350ml", "Original do Brasil - 350ml", 6.50, "🥤"],
+            ["Bebidas", "Guaraná Antarctica 1 Litro", "Original do Brasil - 1 Litro", 10.00, "🥤"],
+            ["Bebidas", "Guaraná Antarctica 2 Litros", "Original do Brasil - 2 Litros", 16.00, "🥤"],
+            ["Bebidas", "Suco Natural Laranja", "Suco fresco de laranja - 500ml", 8.00, "🧃"],
+            ["Bebidas", "Água Mineral 500ml", "Água sem gás - 500ml", 4.00, "💧"],
+            
+            // LANCHES
+            ["Lanches", "IJC Clássico", "Pão, carne 150g, queijo, alface, tomate e molho especial", 28.90, "🍔"],
+            ["Lanches", "Supremo Bacon", "Pão brioche, 200g carne, cheddar, bacon e molho barbecue", 35.50, "🍔"],
+            ["Lanches", "Frango Crispy", "Filé de frango empanado, alface, maionese e pão australiano", 26.90, "🍗"],
+            ["Lanches", "X-Tudo Completo", "2 carnes, queijo, presunto, bacon, ovo, alface, tomate", 42.90, "🍔"],
+            ["Lanches", "Vegetariano", "Hambúrguer de soja, queijo, alface, tomate e molho especial", 24.90, "🥬"],
+            
+            // PIZZAS
+            ["Pizzas", "Calabresa Grande", "Calabresa, cebola e azeitonas - Tamanho Grande", 45.90, "🍕"],
+            ["Pizzas", "Margherita Grande", "Mussarela, tomate e manjericão - Tamanho Grande", 42.90, "🍕"],
+            ["Pizzas", "Quatro Queijos Grande", "Mussarela, provolone, parmesão e gorgonzola", 48.90, "🍕"],
+            ["Pizzas", "Portuguesa Grande", "Presunto, mussarela, ovo, cebola, azeitonas e ervilha", 47.90, "🍕"],
+            
+            // SOBREMESAS
+            ["Sobremesas", "Brownie com Sorvete", "Brownie quente com bola de sorvete de creme", 18.90, "🍫"],
+            ["Sobremesas", "Milkshake Chocolate", "Milkshake cremoso de chocolate com chantilly", 16.50, "🥤"],
+            ["Sobremesas", "Sorvete Casquinha", "Sorvete de creme na casquinha crocante", 6.90, "🍦"],
+            ["Sobremesas", "Torta de Limão", "Torta gelada de limão com merengue", 12.90, "🍰"],
+            
+            // ACOMPANHAMENTOS
+            ["Acompanhamentos", "Batata Frita Média", "Porção de batata frita crocante - 200g", 15.90, "🍟"],
+            ["Acompanhamentos", "Batata Frita Grande", "Porção de batata frita crocante - 400g", 25.90, "🍟"],
+            ["Acompanhamentos", "Onion Rings", "Anéis de cebola empanados e fritos - 150g", 18.90, "🧅"],
+            ["Acompanhamentos", "Salada Caesar", "Alface, croutons, parmesão e molho caesar", 22.90, "🥗"]
+        ];
+
+        // =============================================
+        // 🚀 🚀 🚀 SISTEMA AUTOMÁTICO 🚀 🚀 🚀
+        // =============================================
+        // NÃO PRECISA EDITAR NADA ABAIXO DESTA LINHA!
+
+        let carrinho = [];
+        let tipoEntrega = null;
+
+        function carregarSite() {
+            exibirCardapio();
+            atualizarContadorCarrinho();
+        }
+
+        function exibirCardapio() {
+            const categorias = {};
+            CARDAPIO_DADOS.forEach(produto => {
+                const [categoria, nome, descricao, preco, emoji] = produto;
+                if (!categorias[categoria]) categorias[categoria] = [];
+                categorias[categoria].push({ nome, descricao, preco, emoji });
+            });
+
+            let html = '';
+            for (const [categoria, produtos] of Object.entries(categorias)) {
+                html += `<section class="categoria"><h2>${categoria.toUpperCase()}</h2><div class="menu-grid">`;
+                html += produtos.map(produto => `
+                    <div class="menu-item">
+                        <div class="emoji-container">${produto.emoji}</div>
+                        <h4>${produto.nome}</h4>
+                        <p>${produto.descricao}</p>
+                        <div class="preco">R$ ${produto.preco.toFixed(2).replace('.', ',')}</div>
+                        <button class="add-button" onclick="adicionarAoCarrinho('${produto.nome.replace(/'/g, "\\'")}', ${produto.preco})">+ ADICIONAR</button>
+                    </div>
+                `).join('');
+                html += `</div></section>`;
+            }
+            document.getElementById('conteudo-site').innerHTML = html;
+        }
+
+        function adicionarAoCarrinho(nome, preco) {
+            const itemExistente = carrinho.find(item => item.nome === nome);
+            if (itemExistente) {
+                itemExistente.quantidade += 1;
+            } else {
+                carrinho.push({ nome: nome, preco: preco, quantidade: 1 });
+            }
+            atualizarContadorCarrinho();
+            const button = event.target;
+            button.classList.add('added');
+            button.innerHTML = '✓ ADICIONADO';
+            setTimeout(() => {
+                button.classList.remove('added');
+                button.innerHTML = '+ ADICIONAR';
+            }, 1000);
+        }
+
+        function removerDoCarrinho(nome) {
+            carrinho = carrinho.filter(item => item.nome !== nome);
+            atualizarContadorCarrinho();
+            atualizarResumoPedido();
+        }
+
+        function alterarQuantidade(nome, novaQuantidade) {
+            const item = carrinho.find(item => item.nome === nome);
+            if (item) {
+                if (novaQuantidade <= 0) {
+                    removerDoCarrinho(nome);
+                } else {
+                    item.quantidade = novaQuantidade;
+                }
+                atualizarContadorCarrinho();
+                atualizarResumoPedido();
+            }
+        }
+
+        function atualizarContadorCarrinho() {
+            const totalItens = carrinho.reduce((total, item) => total + item.quantidade, 0);
+            document.getElementById('contador-carrinho').textContent = totalItens;
+        }
+
+        function abrirModalCarrinho() {
+            if (carrinho.length === 0) {
+                alert("🍔 Seu carrinho está vazio!\nAdicione alguns itens deliciosos antes de pedir.");
+                return;
+            }
+            resetarFluxoPedido();
+            atualizarResumoPedido();
+            document.getElementById('modal-carrinho').style.display = 'block';
+        }
+
+        function fecharModal() {
+            document.getElementById('modal-carrinho').style.display = 'none';
+            resetarFluxoPedido();
+        }
+
+        function resetarFluxoPedido() {
+            tipoEntrega = null;
+            document.getElementById('secao-tipo-entrega').style.display = 'none';
+            document.getElementById('form-pedido').style.display = 'none';
+            document.getElementById('botoes-carrinho').style.display = 'block';
+            document.querySelectorAll('.opcao-entrega').forEach(opcao => {
+                opcao.classList.remove('selecionada');
+            });
+        }
+
+        function atualizarResumoPedido() {
+            const resumo = document.getElementById('resumo-pedido');
+            let subtotal = 0;
+            let html = '<h3>📋 Itens do Pedido:</h3>';
+            carrinho.forEach(item => {
+                const itemTotal = item.preco * item.quantidade;
+                subtotal += itemTotal;
+                html += `
+                    <div class="item-carrinho">
+                        <div><strong>${item.nome}</strong><br><small>R$ ${item.preco.toFixed(2).replace('.', ',')} cada</small></div>
+                        <div class="controles-item">
+                            <button class="btn-quantidade" onclick="alterarQuantidade('${item.nome.replace(/'/g, "\\'")}', ${item.quantidade - 1})">-</button>
+                            <span>${item.quantidade}</span>
+                            <button class="btn-quantidade" onclick="alterarQuantidade('${item.nome.replace(/'/g, "\\'")}', ${item.quantidade + 1})">+</button>
+                            <button class="btn-remover" onclick="removerDoCarrinho('${item.nome.replace(/'/g, "\\'")}')">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `<hr style="margin: 1rem 0;"><p><strong>Subtotal: R$ ${subtotal.toFixed(2).replace('.', ',')}</strong></p>`;
+            resumo.innerHTML = html;
+        }
+
+        function avancarParaEntrega() {
+            document.getElementById('secao-tipo-entrega').style.display = 'block';
+            document.getElementById('botoes-carrinho').style.display = 'none';
+        }
+
+        function selecionarTipoEntrega(tipo) {
+            tipoEntrega = tipo;
+            document.querySelectorAll('.opcao-entrega').forEach(opcao => {
+                opcao.classList.remove('selecionada');
+            });
+            event.currentTarget.classList.add('selecionada');
+            document.getElementById('form-pedido').style.display = 'block';
+            if (tipo === 'entrega') {
+                document.getElementById('dados-entrega').style.display = 'block';
+                document.getElementById('dados-balcao').style.display = 'none';
+            } else {
+                document.getElementById('dados-entrega').style.display = 'none';
+                document.getElementById('dados-balcao').style.display = 'block';
+            }
+        }
+
+        function enviarPedidoWhatsApp() {
+            let nome, telefone;
+            if (tipoEntrega === 'entrega') {
+                nome = document.getElementById('nome').value;
+                telefone = document.getElementById('telefone').value;
+                const endereco = document.getElementById('endereco').value;
+                if (!nome || !telefone || !endereco) {
+                    alert('Por favor, preencha todos os campos obrigatórios para entrega!');
+                    return;
+                }
+            } else {
+                nome = document.getElementById('nome-balcao').value;
+                telefone = document.getElementById('telefone-balcao').value;
+                if (!nome || !telefone) {
+                    alert('Por favor, preencha seu nome e telefone para retirada!');
+                    return;
+                }
+            }
+            const pagamento = document.getElementById('pagamento').value;
+            if (!pagamento) {
+                alert('Por favor, selecione a forma de pagamento!');
+                return;
+            }
+
+            let subtotal = carrinho.reduce((total, item) => total + (item.preco * item.quantidade), 0);
+            const taxa = tipoEntrega === 'entrega' ? CONFIG.taxaEntrega : 0;
+            const total = subtotal + taxa;
+
+            let mensagem = `🍔 *PEDIDO IJC BURGUER* 🍔\n\n`;
+            mensagem += `*Cliente:* ${nome}\n`;
+            mensagem += `*Telefone:* ${telefone}\n`;
+            mensagem += `*Tipo de Entrega:* ${tipoEntrega === 'entrega' ? '🚚 Entrega' : '🏪 Retirada no Balcão'}\n`;
+            
+            if (tipoEntrega === 'entrega') {
+                mensagem += `*Endereço:* ${document.getElementById('endereco').value}\n`;
+                if (document.getElementById('referencia').value) {
+                    mensagem += `*Referência:* ${document.getElementById('referencia').value}\n`;
+                }
+            }
+            
+            mensagem += `*Pagamento:* ${pagamento}\n\n`;
+            mensagem += `*ITENS DO PEDIDO:*\n`;
+            
+            carrinho.forEach(item => {
+                const itemTotal = item.preco * item.quantidade;
+                mensagem += `• ${item.quantidade}x ${item.nome} - R$ ${itemTotal.toFixed(2).replace('.', ',')}\n`;
+            });
+            
+            mensagem += `\n*Subtotal:* R$ ${subtotal.toFixed(2).replace('.', ',')}\n`;
+            if (tipoEntrega === 'entrega') {
+                mensagem += `*Taxa de Entrega:* R$ ${taxa.toFixed(2).replace('.', ',')}\n`;
+            }
+            mensagem += `*TOTAL:* R$ ${total.toFixed(2).replace('.', ',')}\n\n`;
+            
+            if (document.getElementById('observacoes').value) {
+                mensagem += `*Observações:* ${document.getElementById('observacoes').value}\n\n`;
+            }
+            
+            mensagem += `_Pedido gerado via site_`;
+
+            const urlWhatsApp = `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(mensagem)}`;
+            window.open(urlWhatsApp, '_blank');
+            
+            // Limpar carrinho após envio
+            carrinho = [];
+            atualizarContadorCarrinho();
+            fecharModal();
+            alert('Pedido enviado com sucesso! Aguarde a confirmação no WhatsApp.');
+        }
+
+        // Carregar o site quando a página abrir
+        document.addEventListener('DOMContentLoaded', carregarSite);
+
+        // Fechar modal clicando fora
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal-carrinho');
+            if (event.target === modal) {
+                fecharModal();
+            }
+        }
+    </script>
+</body>
+</html>
